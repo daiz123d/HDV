@@ -1,6 +1,7 @@
 # REST Data Client
 
 Client Java thuan de goi REST DataService, tinh tong mang `data`, roi submit dap an.
+Code chinh chi nam trong 1 file: `src/main/java/RestDataClient.java`.
 
 ## Thong tin mac dinh
 
@@ -19,12 +20,18 @@ Client Java thuan de goi REST DataService, tinh tong mang `data`, roi submit dap
 test.bat
 ```
 
-## Chay nop bai
+## Chay nop bai 1 phat
 
 Dung gia tri mac dinh:
 
 ```bat
 run.bat
+```
+
+Hoac khong dung file `.bat`:
+
+```bat
+java src\main\java\RestDataClient.java
 ```
 
 Hoac truyen tham so:
