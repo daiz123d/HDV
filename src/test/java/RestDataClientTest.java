@@ -1,5 +1,3 @@
-import java.util.Arrays;
-
 public class RestDataClientTest {
     public static void main(String[] args) {
         testParsesResponseAndSumsData();
@@ -10,11 +8,8 @@ public class RestDataClientTest {
     private static void testParsesResponseAndSumsData() {
         String json = "{\"requestId\":\"REQ-123\",\"data\":[1,2,3,4,-5]}";
 
-        RestDataClient.DataResponse response = RestDataClient.DataResponse.fromJson(json);
-
-        assertEquals("REQ-123", response.requestId(), "requestId");
-        assertEquals(Arrays.asList(1, 2, 3, 4, -5), response.data(), "data");
-        assertEquals(5, response.sum(), "sum");
+        assertEquals("REQ-123", RestDataClient.requestId(json), "requestId");
+        assertEquals(5, RestDataClient.sumData(json), "sum");
     }
 
     private static void testBuildsSubmitPayload() {

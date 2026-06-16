@@ -1,7 +1,3 @@
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -11,126 +7,65 @@ import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public final class RestDataClient {
-    private static final String DEFAULT_STUDENT_CODE = "B22DCDT074";
-    private static final String DEFAULT_Q_CODE = "eTF6h0kP";
-    private static final String DEFAULT_EXAM_IP = "36.50.135.242";
+public class RestDataClient {
+    static final String STUDENT = "B22DCDT074";
+    static final String Q_CODE = "eTF6h0kP";
+    static final String EXAM_IP = "36.50.135.242";
 
-    private RestDataClient() {
-    }
-
-    public static void main(String[] args) throws IOException, InterruptedException {
-        String examIp = args.length > 0 ? args[0] : DEFAULT_EXAM_IP;
-        String studentCode = args.length > 1 ? args[1] : DEFAULT_STUDENT_CODE;
-        String qCode = args.length > 2 ? args[2] : DEFAULT_Q_CODE;
-
+    public static void main(String[] args) throws Exception {
+        String ip = args.length > 0 ? args[0] : EXAM_IP;
+        String student = args.length > 1 ? args[1] : STUDENT;
+        String qCode = args.length > 2 ? args[2] : Q_CODE;
+        String base = "http://" + ip + ":2230";
         HttpClient client = HttpClient.newHttpClient();
-        String baseUrl = "http://" + examIp + ":2230";
-        URI getUri = URI.create(baseUrl + "/api/rest/data?studentCode="
-                + urlEncode(studentCode) + "&qCode=" + urlEncode(qCode));
 
-        HttpRequest getRequest = HttpRequest.newBuilder(getUri)
-                .GET()
-                .header("Accept", "application/json")
-                .build();
+        String json = send(client, HttpRequest.newBuilder(URI.create(base
+                + "/api/rest/data?studentCode=" + enc(student)
+                + "&qCode=" + enc(qCode))).GET().build());
 
-        HttpResponse<String> getResponse =
-                client.send(getRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        ensureSuccess(getResponse.statusCode(), "GET", getResponse.body());
+        String requestId = requestId(json);
+        int answer = sumData(json);
+        String submit = buildSubmitJson(student, qCode, requestId, answer);
 
-        DataResponse dataResponse = DataResponse.fromJson(getResponse.body());
-        int answer = dataResponse.sum();
-        String submitJson = buildSubmitJson(studentCode, qCode, dataResponse.requestId(), answer);
-
-        HttpRequest postRequest = HttpRequest.newBuilder(URI.create(baseUrl + "/api/rest/data/submit"))
-                .POST(HttpRequest.BodyPublishers.ofString(submitJson, StandardCharsets.UTF_8))
+        String result = send(client, HttpRequest.newBuilder(URI.create(base + "/api/rest/data/submit"))
                 .header("Content-Type", "application/json")
-                .header("Accept", "application/json")
-                .build();
+                .POST(HttpRequest.BodyPublishers.ofString(submit, StandardCharsets.UTF_8))
+                .build());
 
-        HttpResponse<String> postResponse =
-                client.send(postRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        ensureSuccess(postResponse.statusCode(), "POST", postResponse.body());
-
-        System.out.println("requestId: " + dataResponse.requestId());
-        System.out.println("data: " + dataResponse.data());
+        System.out.println("requestId: " + requestId);
         System.out.println("answer: " + answer);
-        System.out.println("submit response: " + postResponse.body());
+        System.out.println("submit response: " + result);
     }
 
-    public static String buildSubmitJson(String studentCode, String qCode, String requestId, int answer) {
-        return "{\"studentCode\":\"" + escapeJson(studentCode)
-                + "\",\"qCode\":\"" + escapeJson(qCode)
-                + "\",\"requestId\":\"" + escapeJson(requestId)
-                + "\",\"answer\":" + answer + "}";
+    static String requestId(String json) {
+        return match(json, "\"requestId\"\\s*:\\s*\"([^\"]+)\"");
     }
 
-    private static String urlEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    static int sumData(String json) {
+        Matcher m = Pattern.compile("-?\\d+").matcher(match(json, "\"data\"\\s*:\\s*\\[(.*?)]"));
+        int sum = 0;
+        while (m.find()) sum += Integer.parseInt(m.group());
+        return sum;
     }
 
-    private static void ensureSuccess(int statusCode, String method, String body) {
-        if (statusCode < 200 || statusCode >= 300) {
-            throw new IllegalStateException(method + " failed with HTTP " + statusCode + ": " + body);
-        }
+    public static String buildSubmitJson(String student, String qCode, String requestId, int answer) {
+        return "{\"studentCode\":\"" + student + "\",\"qCode\":\"" + qCode
+                + "\",\"requestId\":\"" + requestId + "\",\"answer\":" + answer + "}";
     }
 
-    private static String escapeJson(String value) {
-        return value
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"");
+    static String send(HttpClient client, HttpRequest request) throws Exception {
+        HttpResponse<String> res = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (res.statusCode() / 100 != 2) throw new RuntimeException(res.statusCode() + ": " + res.body());
+        return res.body();
     }
 
-    public static final class DataResponse {
-        private static final Pattern REQUEST_ID_PATTERN =
-                Pattern.compile("\"requestId\"\\s*:\\s*\"([^\"]*)\"");
-        private static final Pattern DATA_PATTERN =
-                Pattern.compile("\"data\"\\s*:\\s*\\[(.*?)\\]", Pattern.DOTALL);
-        private static final Pattern INTEGER_PATTERN =
-                Pattern.compile("-?\\d+");
+    static String match(String text, String regex) {
+        Matcher m = Pattern.compile(regex, Pattern.DOTALL).matcher(text);
+        if (!m.find()) throw new IllegalArgumentException("Invalid response: " + text);
+        return m.group(1);
+    }
 
-        private final String requestId;
-        private final List<Integer> data;
-
-        private DataResponse(String requestId, List<Integer> data) {
-            this.requestId = requestId;
-            this.data = Collections.unmodifiableList(new ArrayList<>(data));
-        }
-
-        public static DataResponse fromJson(String json) {
-            Matcher requestMatcher = REQUEST_ID_PATTERN.matcher(json);
-            if (!requestMatcher.find()) {
-                throw new IllegalArgumentException("Response JSON does not contain requestId");
-            }
-
-            Matcher dataMatcher = DATA_PATTERN.matcher(json);
-            if (!dataMatcher.find()) {
-                throw new IllegalArgumentException("Response JSON does not contain data array");
-            }
-
-            List<Integer> numbers = new ArrayList<>();
-            Matcher integerMatcher = INTEGER_PATTERN.matcher(dataMatcher.group(1));
-            while (integerMatcher.find()) {
-                numbers.add(Integer.parseInt(integerMatcher.group()));
-            }
-
-            return new DataResponse(requestMatcher.group(1), numbers);
-        }
-
-        public String requestId() {
-            return requestId;
-        }
-
-        public List<Integer> data() {
-            return data;
-        }
-
-        public int sum() {
-            int total = 0;
-            for (int value : data) {
-                total += value;
-            }
-            return total;
-        }
+    static String enc(String s) {
+        return URLEncoder.encode(s, StandardCharsets.UTF_8);
     }
 }
