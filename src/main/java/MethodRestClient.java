@@ -17,27 +17,31 @@ public class MethodRestClient {
         String student = args.length > 1 ? args[1] : STUDENT;
         String qCode = args.length > 2 ? args[2] : Q_CODE;
         String base = "http://" + ip + ":2230";
-        HttpClient client = HttpClient.newHttpClient();
-
-        String json = send(client, HttpRequest.newBuilder(URI.create(base
-                + "/api/rest/method?studentCode=" + enc(student)
-                + "&qCode=" + enc(qCode))).GET().build());
+        String json = get(base + "/api/rest/method?studentCode=" + enc(student) + "&qCode=" + enc(qCode));
 
         String requestId = match(json, "\"requestId\"\\s*:\\s*\"([^\"]+)\"");
         String body = "{\"studentCode\":\"" + student + "\",\"qCode\":\"" + qCode
                 + "\",\"answer\":{\"status\":\"done\"}}";
 
-        String result = send(client, HttpRequest.newBuilder(URI.create(base + "/api/rest/method/" + enc(requestId)))
-                .header("Content-Type", "application/json")
-                .method("PUT", HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
-                .build());
+        String result = put(base + "/api/rest/method/" + enc(requestId), body);
 
         System.out.println("requestId: " + requestId);
         System.out.println("submit response: " + result);
     }
 
-    static String send(HttpClient client, HttpRequest request) throws Exception {
-        HttpResponse<String> res = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+    static String get(String url) throws Exception {
+        return send(HttpRequest.newBuilder(URI.create(url)).GET().build());
+    }
+
+    static String put(String url, String body) throws Exception {
+        return send(HttpRequest.newBuilder(URI.create(url))
+                .header("Content-Type", "application/json")
+                .method("PUT", HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                .build());
+    }
+
+    static String send(HttpRequest request) throws Exception {
+        HttpResponse<String> res = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (res.statusCode() / 100 != 2) throw new RuntimeException(res.statusCode() + ": " + res.body());
         return res.body();
     }

@@ -19,11 +19,7 @@ public class HeaderRestClient {
         String student = args.length > 1 ? args[1] : STUDENT;
         String qCode = args.length > 2 ? args[2] : Q_CODE;
         String base = "http://" + ip + ":2230";
-        HttpClient client = HttpClient.newHttpClient();
-
-        String json = send(client, HttpRequest.newBuilder(URI.create(base
-                + "/api/rest/header?studentCode=" + enc(student)
-                + "&qCode=" + enc(qCode))).GET().build());
+        String json = get(base + "/api/rest/header?studentCode=" + enc(student) + "&qCode=" + enc(qCode));
 
         String requestId = match(json, "\"requestId\"\\s*:\\s*\"([^\"]+)\"");
         String nonce = match(json, "\"nonce\"\\s*:\\s*\"([^\"]+)\"");
@@ -33,11 +29,7 @@ public class HeaderRestClient {
         String body = "{\"studentCode\":\"" + student + "\",\"qCode\":\"" + qCode
                 + "\",\"requestId\":\"" + requestId + "\"}";
 
-        String result = send(client, HttpRequest.newBuilder(URI.create(base + "/api/rest/header/submit"))
-                .header("Content-Type", "application/json")
-                .header("X-Signature", signature)
-                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
-                .build());
+        String result = post(base + "/api/rest/header/submit", body, signature);
 
         System.out.println("requestId: " + requestId);
         System.out.println("signature: " + signature);
@@ -54,8 +46,20 @@ public class HeaderRestClient {
         return hex.toString();
     }
 
-    static String send(HttpClient client, HttpRequest request) throws Exception {
-        HttpResponse<String> res = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+    static String get(String url) throws Exception {
+        return send(HttpRequest.newBuilder(URI.create(url)).GET().build());
+    }
+
+    static String post(String url, String body, String signature) throws Exception {
+        return send(HttpRequest.newBuilder(URI.create(url))
+                .header("Content-Type", "application/json")
+                .header("X-Signature", signature)
+                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                .build());
+    }
+
+    static String send(HttpRequest request) throws Exception {
+        HttpResponse<String> res = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (res.statusCode() / 100 != 2) throw new RuntimeException(res.statusCode() + ": " + res.body());
         return res.body();
     }
