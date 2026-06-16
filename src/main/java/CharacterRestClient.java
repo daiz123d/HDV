@@ -8,7 +8,7 @@ import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class RestDataClient {
+public class CharacterRestClient {
     static final String STUDENT = "B22DCDT074";
     static final String Q_CODE = "vDWuPkz8";
     static final String EXAM_IP = "36.50.135.242";
@@ -26,11 +26,11 @@ public class RestDataClient {
 
         String requestId = requestId(json);
         String answer = sortedWords(json);
-        String submit = buildSubmitJson(student, qCode, requestId, answer);
+        String body = buildSubmitJson(student, qCode, requestId, answer);
 
         String result = send(client, HttpRequest.newBuilder(URI.create(base + "/api/rest/character/submit"))
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(submit, StandardCharsets.UTF_8))
+                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                 .build());
 
         System.out.println("requestId: " + requestId);
@@ -48,7 +48,7 @@ public class RestDataClient {
         return String.join(" ", words);
     }
 
-    public static String buildSubmitJson(String student, String qCode, String requestId, String answer) {
+    static String buildSubmitJson(String student, String qCode, String requestId, String answer) {
         return "{\"studentCode\":\"" + student + "\",\"qCode\":\"" + qCode
                 + "\",\"requestId\":\"" + requestId + "\",\"answer\":\"" + escape(answer) + "\"}";
     }
