@@ -4,12 +4,13 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class RestDataClient {
     static final String STUDENT = "B22DCDT074";
-    static final String Q_CODE = "eTF6h0kP";
+    static final String Q_CODE = "vDWuPkz8";
     static final String EXAM_IP = "36.50.135.242";
 
     public static void main(String[] args) throws Exception {
@@ -20,14 +21,14 @@ public class RestDataClient {
         HttpClient client = HttpClient.newHttpClient();
 
         String json = send(client, HttpRequest.newBuilder(URI.create(base
-                + "/api/rest/data?studentCode=" + enc(student)
+                + "/api/rest/character?studentCode=" + enc(student)
                 + "&qCode=" + enc(qCode))).GET().build());
 
         String requestId = requestId(json);
-        int answer = sumData(json);
+        String answer = sortedWords(json);
         String submit = buildSubmitJson(student, qCode, requestId, answer);
 
-        String result = send(client, HttpRequest.newBuilder(URI.create(base + "/api/rest/data/submit"))
+        String result = send(client, HttpRequest.newBuilder(URI.create(base + "/api/rest/character/submit"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(submit, StandardCharsets.UTF_8))
                 .build());
@@ -41,16 +42,15 @@ public class RestDataClient {
         return match(json, "\"requestId\"\\s*:\\s*\"([^\"]+)\"");
     }
 
-    static int sumData(String json) {
-        Matcher m = Pattern.compile("-?\\d+").matcher(match(json, "\"data\"\\s*:\\s*\\[(.*?)]"));
-        int sum = 0;
-        while (m.find()) sum += Integer.parseInt(m.group());
-        return sum;
+    static String sortedWords(String json) {
+        String[] words = match(json, "\"data\"\\s*:\\s*\"([^\"]*)\"").trim().split("\\s+");
+        Arrays.sort(words);
+        return String.join(" ", words);
     }
 
-    public static String buildSubmitJson(String student, String qCode, String requestId, int answer) {
+    public static String buildSubmitJson(String student, String qCode, String requestId, String answer) {
         return "{\"studentCode\":\"" + student + "\",\"qCode\":\"" + qCode
-                + "\",\"requestId\":\"" + requestId + "\",\"answer\":" + answer + "}";
+                + "\",\"requestId\":\"" + requestId + "\",\"answer\":\"" + escape(answer) + "\"}";
     }
 
     static String send(HttpClient client, HttpRequest request) throws Exception {
@@ -67,5 +67,9 @@ public class RestDataClient {
 
     static String enc(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
+    }
+
+    static String escape(String s) {
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

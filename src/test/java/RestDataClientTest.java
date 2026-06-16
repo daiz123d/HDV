@@ -1,22 +1,22 @@
 public class RestDataClientTest {
     public static void main(String[] args) {
-        testParsesResponseAndSumsData();
+        testSortsWordsFromData();
         testBuildsSubmitPayload();
         System.out.println("All tests passed");
     }
 
-    private static void testParsesResponseAndSumsData() {
-        String json = "{\"requestId\":\"REQ-123\",\"data\":[1,2,3,4,-5]}";
+    private static void testSortsWordsFromData() {
+        String json = "{\"requestId\":\"REQ-123\",\"data\":\"banana Apple apple cherry\"}";
 
         assertEquals("REQ-123", RestDataClient.requestId(json), "requestId");
-        assertEquals(5, RestDataClient.sumData(json), "sum");
+        assertEquals("Apple apple banana cherry", RestDataClient.sortedWords(json), "sorted words");
     }
 
     private static void testBuildsSubmitPayload() {
-        String payload = RestDataClient.buildSubmitJson("B22DCDT074", "eTF6h0kP", "REQ-123", 10);
+        String payload = RestDataClient.buildSubmitJson("B22DCDT074", "vDWuPkz8", "REQ-123", "apple banana cherry");
 
         assertEquals(
-                "{\"studentCode\":\"B22DCDT074\",\"qCode\":\"eTF6h0kP\",\"requestId\":\"REQ-123\",\"answer\":10}",
+                "{\"studentCode\":\"B22DCDT074\",\"qCode\":\"vDWuPkz8\",\"requestId\":\"REQ-123\",\"answer\":\"apple banana cherry\"}",
                 payload,
                 "submit payload");
     }
